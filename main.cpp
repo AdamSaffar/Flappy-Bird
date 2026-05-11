@@ -42,10 +42,10 @@ private:
     float screenHeight;
     float screenWidth;
     // constant vars
-    const float pipeSpacing{350.0f}; // distance between pipes
+    const float pipeSpacing{550.0f}; // distance between pipes
     const float pipeWidth{100.0f};
     const float gapHeight{200.0f}; // size of hole the bird flies through
-    const float speed{5.0f};
+    const float pipeSpeedSeconds{300.0f}; // tested at 5.0 speed, 60fps = 300 per sec
 
 public:
     Pipes(float sWidth, float sHeight) : screenHeight(sHeight), screenWidth(sWidth) {
@@ -62,9 +62,10 @@ public:
         pipeQueue.push_back(PipePair(startX, randGapY, gapHeight, pipeWidth, screenHeight));
     }
     // called every frame
-    void update() {
+    void update(float dt) {
         for (auto& pipe : pipeQueue) {
-            pipe.move(speed);
+            // Distance = speed * time
+            pipe.move(pipeSpeedSeconds * dt);
         }
 
         if (!pipeQueue.empty() && pipeQueue.front().xPos < -pipeWidth) {
@@ -123,14 +124,19 @@ public:
     }
 
     void jump() {
+        /*
         // We can only jump if the bird is falling
         if (birdVelocity >= 0) {
             birdVelocity = -10.0f; // increase velocity
         }
+        */
+        birdVelocity = -400.0f;
     }
-    void onNewFrame() {
-        birdVelocity += 0.5f; // constant gravitational pull on bird
-        birdPosY += birdVelocity; // update position based on current speed
+    void onNewFrame(float dt) {
+        float gravity = 1000.0f; // constant gravitational pull on bird
+
+        birdVelocity += gravity * dt;
+        birdPosY += birdVelocity * dt;
         shape.setPosition(birdPosX, birdPosY);
         //std::cout << "Bird Pos Y: " << birdPosY << '\n';
     }
@@ -155,7 +161,9 @@ public:
 int main() {
     std::srand(static_cast<unsigned>(std::time(0)));
     sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "Flappy Bird");
-    window.setFramerateLimit(20); // 20 FPS
+    //window.setFramerateLimit(60); // 60 FPS
+    window.setVerticalSyncEnabled(true); // set frame rate equal to monitors frequency
+    sf::Clock clock;
 
     float width = static_cast<float>(window.getSize().x);
     float height = static_cast<float>(window.getSize().y);
@@ -167,7 +175,8 @@ int main() {
     bool isGameOver = false;
 
     while (window.isOpen()) {
-
+        sf::Time elapsed = clock.restart(); // reset clock at each frame
+        float dt = elapsed.asSeconds(); // time elapsed between a single frame
         sf::Event event;
         while (window.pollEvent(event)) {
             switch (event.type) {
@@ -198,8 +207,8 @@ int main() {
             }
         }
         if (!isGameOver) {
-            playerBird.onNewFrame();
-            pipeGen.update();
+            playerBird.onNewFrame(dt);
+            pipeGen.update(dt);
             // check for floor/ceiling and pipe collision
             if (playerBird.floorCeilingCollision() || pipeGen.checkCollision(playerBird.getBounds())) {
                 isGameOver = true;
